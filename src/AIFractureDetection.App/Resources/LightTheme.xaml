@@ -1,0 +1,29 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Ana arkaplanlar -->
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FFF8FAFC"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#FFF1F5F9"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#FFE2E8F0"/>
+
+    <!-- Vurgu renkleri -->
+    <SolidColorBrush x:Key="PrimaryBrush" Color="#FF7C3AED"/>
+    <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#FF6D28D9"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#FF0891B2"/>
+    <SolidColorBrush x:Key="SuccessBrush" Color="#FF059669"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="#FFD97706"/>
+    <SolidColorBrush x:Key="DangerBrush" Color="#FFDC2626"/>
+
+    <!-- Metin -->
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FF0F172A"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FF475569"/>
+    <SolidColorBrush x:Key="TextMutedBrush" Color="#FF94A3B8"/>
+
+    <!-- Drop zone -->
+    <SolidColorBrush x:Key="DropZoneBrush" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="DropZoneActiveBrush" Color="#FFF5F3FF"/>
+    <SolidColorBrush x:Key="DropZoneBorderBrush" Color="#FFCBD5E1"/>
+    <SolidColorBrush x:Key="DropZoneActiveBorderBrush" Color="#FF7C3AED"/>
+
+</ResourceDictionary>
