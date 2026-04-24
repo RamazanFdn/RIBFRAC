@@ -39,6 +39,10 @@ public class DetectionResult
 /// </summary>
 public class Finding
 {
+
+    [JsonPropertyName("overlay_image")]
+    public string? OverlayImage { get; set; }
+
     [JsonPropertyName("type")]
     public string Type { get; set; } = string.Empty; // "fracture" veya "dislocation"
 

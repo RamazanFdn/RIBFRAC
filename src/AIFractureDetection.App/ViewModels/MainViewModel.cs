@@ -26,54 +26,29 @@ public partial class MainViewModel : ObservableObject
         _apiService = apiService;
         _reportService = reportService;
         _themeService = themeService;
-
-        // Varsayılan temayı uygula
         _themeService.Apply(_themeService.Current);
     }
 
-    // --- Durum ---
-
-    [ObservableProperty]
-    private string? _selectedFilePath;
-
-    [ObservableProperty]
-    private string? _selectedFileName;
-
-    [ObservableProperty]
-    private string _selectedFileSizeText = string.Empty;
-
-    [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
-    private string _statusMessage = "Başlamak için bir .nii.gz dosyası seçin veya sürükleyin.";
-
-    [ObservableProperty]
-    private double _progress;
-
-    [ObservableProperty]
-    private NiftiImage? _niftiImage;
-
-    [ObservableProperty]
-    private BitmapSource? _previewImage;
-
-    [ObservableProperty]
-    private int _currentSlice;
-
-    [ObservableProperty]
-    private int _maxSlice;
-
-    [ObservableProperty]
-    private SliceOrientation _orientation = SliceOrientation.Axial;
-
-    [ObservableProperty]
-    private DetectionResult? _result;
-
-    [ObservableProperty]
-    private string _apiBaseUrl = "http://127.0.0.1:8000";
-
-    [ObservableProperty]
-    private bool _apiReachable;
+    [ObservableProperty] private string? _selectedFilePath;
+    [ObservableProperty] private string? _selectedFileName;
+    [ObservableProperty] private string _selectedFileSizeText = string.Empty;
+    [ObservableProperty] private bool _isBusy;
+    [ObservableProperty] private string _statusMessage = "Başlamak için bir .nii.gz dosyası seçin veya sürükleyin.";
+    [ObservableProperty] private double _progress;
+    [ObservableProperty] private NiftiImage? _niftiImage;
+    [ObservableProperty] private BitmapSource? _previewImage;
+    [ObservableProperty] private int _currentSlice;
+    [ObservableProperty] private int _maxSlice;
+    [ObservableProperty] private SliceOrientation _orientation = SliceOrientation.Axial;
+    [ObservableProperty] private DetectionResult? _result;
+    [ObservableProperty] private string _apiBaseUrl = "http://127.0.0.1:8000";
+    [ObservableProperty] private bool _apiReachable;
+    private bool _isOverlayActive;
+    public bool IsOverlayActive
+    {
+        get => _isOverlayActive;
+        set => SetProperty(ref _isOverlayActive, value);
+    }
 
     public bool HasFile => !string.IsNullOrEmpty(SelectedFilePath);
     public bool HasResult => Result is not null;
@@ -90,7 +65,11 @@ public partial class MainViewModel : ObservableObject
         ExportReportCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnCurrentSliceChanged(int value) => UpdatePreview();
+    partial void OnCurrentSliceChanged(int value)
+    {
+        if (!_isOverlayActive)
+            UpdatePreview();
+    }
 
     partial void OnOrientationChanged(SliceOrientation value)
     {
@@ -103,10 +82,9 @@ public partial class MainViewModel : ObservableObject
             _ => 0
         };
         CurrentSlice = MaxSlice / 2;
+        IsOverlayActive = false;
         UpdatePreview();
     }
-
-    // --- Komutlar ---
 
     [RelayCommand]
     private void PickFile()
@@ -117,9 +95,7 @@ public partial class MainViewModel : ObservableObject
             Filter = "NIfTI görüntüleri (*.nii;*.nii.gz)|*.nii;*.nii.gz|Tüm dosyalar (*.*)|*.*"
         };
         if (dialog.ShowDialog() == true)
-        {
             _ = LoadFileAsync(dialog.FileName);
-        }
     }
 
     [RelayCommand]
@@ -132,6 +108,7 @@ public partial class MainViewModel : ObservableObject
         PreviewImage = null;
         Result = null;
         Progress = 0;
+        IsOverlayActive = false;
         StatusMessage = "Başlamak için bir .nii.gz dosyası seçin veya sürükleyin.";
     }
 
@@ -139,12 +116,12 @@ public partial class MainViewModel : ObservableObject
     private async Task AnalyzeAsync()
     {
         if (string.IsNullOrWhiteSpace(SelectedFilePath)) return;
-
         try
         {
             IsBusy = true;
             Progress = 0;
             Result = null;
+            IsOverlayActive = false;
             StatusMessage = "AI servisine gönderiliyor...";
 
             _apiService.SetBaseUrl(ApiBaseUrl);
@@ -171,7 +148,50 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private bool CanAnalyze() => HasFile && !IsBusy;
+    private bool CanAnalyze() => true;
+
+    [RelayCommand]
+    private void GoToFinding(Finding finding)
+    {
+        if (finding is null) return;
+
+        if (finding.OverlayImage is not null)
+        {
+            ShowOverlay(finding.OverlayImage);
+            IsOverlayActive = true;
+        }
+
+        if (finding.SliceIndex is int idx)
+        {
+            CurrentSlice = Math.Clamp(idx, 0, MaxSlice);
+        }
+
+        StatusMessage = $"{finding.Label} — Slice {finding.SliceIndex}, {finding.Region}, Güven: {finding.Confidence:P0}";
+    }
+
+    [RelayCommand]
+    private void ClearOverlay()
+    {
+        IsOverlayActive = false;
+        UpdatePreview();
+    }
+
+    private void ShowOverlay(string base64Png)
+    {
+        try
+        {
+            var bytes = Convert.FromBase64String(base64Png);
+            using var ms = new MemoryStream(bytes);
+            var decoder = BitmapDecoder.Create(
+                ms,
+                BitmapCreateOptions.None,
+                BitmapCacheOption.OnLoad);
+            var bmp = decoder.Frames[0];
+            bmp.Freeze();
+            PreviewImage = bmp;
+        }
+        catch { }
+    }
 
     [RelayCommand]
     private async Task PingApiAsync()
@@ -198,7 +218,6 @@ public partial class MainViewModel : ObservableObject
             FileName = $"rapor_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
         };
         if (dialog.ShowDialog() != true) return;
-
         try
         {
             IsBusy = true;
@@ -221,8 +240,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    // --- Genel: dosya yükleme ---
-
     public async Task LoadFileAsync(string path)
     {
         try
@@ -232,9 +249,9 @@ public partial class MainViewModel : ObservableObject
                 StatusMessage = "Geçersiz dosya: yalnızca .nii veya .nii.gz desteklenir.";
                 return;
             }
-
             IsBusy = true;
             Result = null;
+            IsOverlayActive = false;
             SelectedFilePath = path;
             SelectedFileName = Path.GetFileName(path);
             var info = new FileInfo(path);
@@ -252,7 +269,6 @@ public partial class MainViewModel : ObservableObject
             };
             CurrentSlice = MaxSlice / 2;
             UpdatePreview();
-
             StatusMessage = $"Hazır: {NiftiImage.Width}×{NiftiImage.Height}×{NiftiImage.Depth} voksel.";
         }
         catch (Exception ex)
@@ -280,20 +296,12 @@ public partial class MainViewModel : ObservableObject
         {
             var bytes = NiftiImage.GetSlice(Orientation, CurrentSlice, out int w, out int h);
             if (bytes.Length == 0) { PreviewImage = null; return; }
-
-            var bmp = BitmapSource.Create(
-                w, h, 96, 96,
-                System.Windows.Media.PixelFormats.Gray8,
-                null,
-                bytes,
-                w);
+            var bmp = BitmapSource.Create(w, h, 96, 96,
+                System.Windows.Media.PixelFormats.Gray8, null, bytes, w);
             bmp.Freeze();
             PreviewImage = bmp;
         }
-        catch
-        {
-            PreviewImage = null;
-        }
+        catch { PreviewImage = null; }
     }
 
     private static byte[] EncodePng(BitmapSource source)

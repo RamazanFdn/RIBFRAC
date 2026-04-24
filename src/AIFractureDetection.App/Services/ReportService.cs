@@ -52,6 +52,7 @@ public class ReportService : IReportService
                             TableRow(t, "Genel Güven", $"{result.OverallConfidence * 100:F1}%");
                         });
 
+                        // Özet
                         col.Item().PaddingTop(15).Element(e => SectionHeader(e, "Özet"));
                         var summaryColor = result.HasPositiveFindings ? Colors.Red.Darken2 : Colors.Green.Darken2;
                         col.Item().Text(text =>
@@ -62,14 +63,14 @@ public class ReportService : IReportService
                                 .FontColor(summaryColor).SemiBold();
                         });
 
-                        // Önizleme görüntüsü
+                        // Genel önizleme
                         if (previewPng is { Length: > 0 })
                         {
                             col.Item().PaddingTop(15).Element(e => SectionHeader(e, "Görüntü Önizleme"));
                             col.Item().AlignCenter().Width(350).Image(previewPng);
                         }
 
-                        // Bulgular
+                        // Bulgular tablosu
                         if (result.HasPositiveFindings)
                         {
                             col.Item().PaddingTop(15).Element(e => SectionHeader(e, "Bulgular"));
@@ -81,12 +82,14 @@ public class ReportService : IReportService
                                     c.RelativeColumn(2);
                                     c.RelativeColumn(1);
                                     c.RelativeColumn(1);
+                                    c.RelativeColumn(1);
                                 });
                                 t.Header(h =>
                                 {
                                     h.Cell().Element(HeaderCell).Text("Tip");
                                     h.Cell().Element(HeaderCell).Text("Etiket");
                                     h.Cell().Element(HeaderCell).Text("Bölge");
+                                    h.Cell().Element(HeaderCell).Text("Slice");
                                     h.Cell().Element(HeaderCell).Text("Güven");
                                 });
                                 foreach (var f in result.Findings)
@@ -94,9 +97,42 @@ public class ReportService : IReportService
                                     t.Cell().Element(BodyCell).Text(TranslateType(f.Type));
                                     t.Cell().Element(BodyCell).Text(f.Label);
                                     t.Cell().Element(BodyCell).Text(f.Region ?? "-");
+                                    t.Cell().Element(BodyCell).Text(f.SliceIndex?.ToString() ?? "-");
                                     t.Cell().Element(BodyCell).Text($"{f.Confidence * 100:F1}%");
                                 }
                             });
+
+                            // Her bulgu için overlay görüntüsü
+                            col.Item().PaddingTop(20).Element(e => SectionHeader(e, "Kırık Lokalizasyonu"));
+                            col.Item().PaddingTop(10).Text(
+                                "Aşağıdaki görüntülerde tespit edilen kırık bölgeleri kırmızı ile işaretlenmiştir.")
+                                .FontSize(9).Italic().FontColor(Colors.Grey.Darken1);
+
+                            var findingsWithOverlay = result.Findings
+                                .Where(f => !string.IsNullOrEmpty(f.OverlayImage))
+                                .ToList();
+
+                            if (findingsWithOverlay.Any())
+                            {
+                                col.Item().PaddingTop(10).Grid(grid =>
+                                {
+                                    grid.Columns(2);
+                                    grid.Spacing(10);
+
+                                    foreach (var f in findingsWithOverlay)
+                                    {
+                                        var imageBytes = Convert.FromBase64String(f.OverlayImage!);
+                                        grid.Item().Column(innerCol =>
+                                        {
+                                            innerCol.Item().Text($"{f.Label}")
+                                                .FontSize(10).SemiBold().FontColor(Colors.Indigo.Darken2);
+                                            innerCol.Item().Text($"Bölge: {f.Region} • Slice: {f.SliceIndex} • Güven: {f.Confidence * 100:F0}%")
+                                                .FontSize(8).FontColor(Colors.Grey.Darken1);
+                                            innerCol.Item().PaddingTop(4).Image(imageBytes);
+                                        });
+                                    }
+                                });
+                            }
                         }
 
                         // Uyarı
